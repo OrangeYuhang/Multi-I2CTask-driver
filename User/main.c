@@ -92,7 +92,7 @@ int main(void)
 
         {
             /* 串口同步发送当前采样：帧内文本行，10Hz（和刷屏同一拍）。
-             * 59 字节 < USART1_FRAME_DATA_MAX(64)，串口助手 HEX 模式可读。 */
+             * 59 字节 < USART1_FRAME_DATA_MAX(64)，串口助手 8N1 可读。 */
             char line[64];
             sprintf(line, "ax=%6d ay=%6d az=%6d gx=%6d gy=%6d gz=%6d",
                     gy521.ax, gy521.ay, gy521.az,

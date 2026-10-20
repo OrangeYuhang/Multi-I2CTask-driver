@@ -54,7 +54,9 @@ void USART1_Init(void)
      *    PCE=1、PS=0。只开 RXNE 接收中断：发送走主循环轮询（发送不会丢
      *    数据只是变慢，不值得为它开中断） */
     USART1->CR2 = 0;
-    USART1->CR1 = USART_CR1_TE | USART_CR1_RE | USART_CR1_PCE | USART_CR1_RXNEIE;
+    /* 8N1：不用硬件奇偶校验。CH341 的 Linux 驱动对校验位支持有缺陷，
+     * 带校验位的流会被收成结构化乱码；完整性交给帧级的 SUM。 */
+    USART1->CR1 = USART_CR1_TE | USART_CR1_RE | USART_CR1_RXNEIE;
 
     /* 5. 最后开总开关（RM0008 建议 UE 最后置位）。UE 一开 TXE 立即为 1，
      *    Update() 随时可以把缓冲里的数据泵出去 */
