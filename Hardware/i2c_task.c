@@ -9,8 +9,6 @@ typedef struct {
 
 static I2CQueue s_q;
 
-/* 0 = 尚未为任何任务切过速。第一个任务到队头时必然触发一次切换，
- * 即使它的 freq 和引擎默认值相同 —— 重复写一次 ARR 无害。 */
 static uint32_t s_cur_freq = 0U;
 
 void I2CTask_Enqueue(I2CTask *t)

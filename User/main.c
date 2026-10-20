@@ -27,6 +27,9 @@
 #include "oled.h"
 #include "systick.h"
 #include "key.h"
+#include "usart1.h"
+#include <stdio.h>
+#include <string.h>
 
 /* 屏幕刷新间隔。数据是 100Hz 就绪的，但画一屏要走近 500 字节 I2C，
  * 比一次采样本身还慢，所以显示比采样慢一个数量级。
@@ -38,6 +41,8 @@ int main(void)
     SysTick_Init();
     OLED_Init();
     key.init();
+
+    USART1_Init(); /* 优先级 1，低于软 I2C 引擎的 0，不干扰位定时 */
 
     if (GY521_Init() != GY521_OK) {
         /* 走到这里基本都是接线问题：量一下 PA6/PA7 静态时是不是被上拉到 3.3V
@@ -57,6 +62,7 @@ int main(void)
 
     while (1) {
         key.update();
+        USART1_Update();
 
         GY521_Scan();
         I2CTask_Run();
@@ -83,6 +89,16 @@ int main(void)
             continue;
         }
         gy521.sample_ready = 0;
+
+        {
+            /* 串口同步发送当前采样：帧内文本行，10Hz（和刷屏同一拍）。
+             * 59 字节 < USART1_FRAME_DATA_MAX(64)，串口助手 HEX 模式可读。 */
+            char line[64];
+            sprintf(line, "ax=%6d ay=%6d az=%6d gx=%6d gy=%6d gz=%6d",
+                    gy521.ax, gy521.ay, gy521.az,
+                    gy521.gx, gy521.gy, gy521.gz);
+            USART1_SendFrame((const uint8_t *)line, strlen(line));
+        }
 
         if (page) {
             oled.show_string(2, 1, "gx");

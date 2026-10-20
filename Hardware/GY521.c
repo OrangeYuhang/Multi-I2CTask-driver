@@ -143,20 +143,17 @@ static uint8_t gy521_update(void)
     }
 }
 
-/* 任务节点在回调之后定义：初始化器引用了 gy521_update。 */
 static I2CTask s_task = {
     .update  = gy521_update,
     .freq_hz = 100000UL,
 };
 
-/* INT 引脚的当前电平。MPU6050 的 INT 是推挽输出，PA1 配的是下拉输入，
- * 所以直接读 IDR 就是真实电平；模块没接时下拉保证读到 0，不会误触发。 */
+
 static uint8_t GY521_IntLevel(void)
 {
     return (GY521_INT_PORT->IDR & GY521_INT_PIN) != 0U;
 }
 
-/* 扫描标志 -> 入队。主循环每轮都调（见 GY521.h）。 */
 void GY521_Scan(void)
 {
     if (!gy521.data_ready && !GY521_IntLevel()) {

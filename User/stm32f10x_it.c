@@ -25,6 +25,7 @@
 #include "systick.h"
 #include "GY521.h"
 #include "soft_i2c.h"
+#include "usart1.h"
 
 /** @addtogroup STM32F10x_StdPeriph_Template
   * @{
@@ -172,6 +173,13 @@ void EXTI1_IRQHandler(void)
 void TIM2_IRQHandler(void)
 {
     SoftI2C_TickISR();
+}
+
+void USART1_IRQHandler(void)
+{
+    /* 壳与业务分离（同 SysTick/TIM2 约定）。优先级 1 < TIM2 的 0，
+     * 收字节永远不能抢占软 I2C 的位定时。 */
+    USART1_IRQ_Service();
 }
 
 /**
