@@ -23,7 +23,7 @@
   */
 
 #include "GY521.h"
-#include "i2c_device.h"
+#include "i2c_task.h"
 #include "oled.h"
 #include "systick.h"
 #include "key.h"
@@ -59,7 +59,7 @@ int main(void)
         key.update();
 
         GY521_Scan();
-        I2CDevice_Run();
+        I2CTask_Run();
 
         /* 用事件标志而不是看 key.state：一次刷屏要走近 500 字节 I2C，
          * 期间不会调用 key.update()，靠采样 state 判边沿有可能整段错过

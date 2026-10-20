@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include "stm32f10x_gpio.h"
 #include "stm32f10x_exti.h"
-#include "i2c_device.h"
+
 
 /* GY521 模块 = MPU6050 + 3.3V 稳压 + 上拉电阻，直接读 MPU6050 的寄存器。
  *
@@ -68,12 +68,6 @@ typedef enum {
 } GY521_Status;
 
 typedef struct  {
-  /* 队列节点 = 设备接口，必须是第一个成员（见 i2c_device.h 的约定）：
-   * runtime 只认识 I2CDevice，经 base.vptr 调 update；
-   * (GY521 *)base 的下转和 &gy521.base 的上转都不移动指针（标准背书）。
-   * 别在 base 前面加字段。 */
-  I2CDevice base;
-
   int16_t ax;
   int16_t ay;
   int16_t az;
@@ -94,18 +88,8 @@ typedef struct  {
    * 两笔 I2C 事务（先清中断锁存，再读 14 字节），所以显示必须看这个。 */
   volatile uint8_t sample_ready;
 
-  /* 采样任务的步进状态。住在设备里而不是 task 里：update 只拿到
-   * this、够不到 task，所以复位也是回调自己的责任 —— 每一条
-   * TASK_DONE 路径都要把 step 拨回 STEP_STATUS。 */
-  uint8_t step;
-
   /* 累计 I2C 失败次数。一直不涨才说明总线是健康的。 */
   uint16_t err_count;
-
-  /* 任务私有事务缓冲：一次采样 = 读 INT_STATUS + 读 14 字节。
-   * int_status 的值本身不用，读它只是为了清掉中断锁存。 */
-  uint8_t int_status;
-  uint8_t buf[GY521_BURST_LEN];
 
 } GY521;
 
@@ -119,7 +103,10 @@ GY521_Status GY521_Init(void);
  *
  * 标志有两个来源：EXTI 置的 data_ready，和 INT 引脚电平兜底。
  * 电平兜底是防漏机制 —— 锁存模式下引脚挂在高电平时不会再产生新的
- * 上升沿，只靠 data_ready 会在读 INT_STATUS 失败后永久停摆。 */
+ * 上升沿，只靠 data_ready 会在读 INT_STATUS 失败后永久停摆。
+ *
+ * 任务节点、步进状态、事务缓冲都是 GY521.c 里的 file-scope static
+ * （本文件只留数据），所以同一类设备只能有一个实例。 */
 void GY521_Scan(void);
 
 extern GY521 gy521;

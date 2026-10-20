@@ -3,6 +3,7 @@
 #include "stm32f10x_gpio.h"
 #include "stm32f10x_exti.h"
 #include "GY521.h"
+#include "i2c_task.h"
 #include "soft_i2c.h"
 #include "systick.h"
 
@@ -84,57 +85,69 @@ GY521_Status GY521_Init(void)
 }
 
 enum { STEP_STATUS = 0, STEP_BURST, STEP_PARSE };
-static uint8_t gy521_update(I2CDevice *self)
+
+/* 本设计的全部任务状态都在这里，file-scope static：step 复位是回调
+ * 自己的责任（runtime 够不到），也意味着同类设备只能有一个实例。 */
+static uint8_t s_step;
+static uint8_t s_int_status;
+static uint8_t s_buf[GY521_BURST_LEN];
+
+static uint8_t gy521_update(void)
 {
-    GY521 *g = (GY521 *)self;
     if (SoftI2C_Busy()) {
         return TASK_CONTINUE;
     }
 
-    switch (g->step) {
+    switch (s_step) {
 
     case STEP_STATUS:
-        if (SoftI2C_SubmitReadRegs(GY521_ADDRESS, INT_STATUS, &g->int_status, 1) == 0U) {
-            g->step = STEP_BURST;
+        if (SoftI2C_SubmitReadRegs(GY521_ADDRESS, INT_STATUS, &s_int_status, 1) == 0U) {
+            s_step = STEP_BURST;
         }
         return TASK_CONTINUE;
 
     case STEP_BURST:
         if (SoftI2C_Result() != I2C_OK) {
-            g->err_count++;
-            g->step = STEP_STATUS;
+            gy521.err_count++;
+            s_step = STEP_STATUS;
             return TASK_DONE;
         }
 
-        if (SoftI2C_SubmitReadRegs(GY521_ADDRESS, ACCEL_X_H, g->buf, GY521_BURST_LEN) == 0U) {
-            g->step = STEP_PARSE;
+        if (SoftI2C_SubmitReadRegs(GY521_ADDRESS, ACCEL_X_H, s_buf, GY521_BURST_LEN) == 0U) {
+            s_step = STEP_PARSE;
         }
         return TASK_CONTINUE;
 
     case STEP_PARSE:
         if (SoftI2C_Result() != I2C_OK) {
-            g->err_count++; 
-            g->step = STEP_STATUS;
+            gy521.err_count++;
+            s_step = STEP_STATUS;
             return TASK_DONE;
         }
 
-        g->ax = (int16_t)((g->buf[0] << 8) | g->buf[1]);
-        g->ay = (int16_t)((g->buf[2] << 8) | g->buf[3]);
-        g->az = (int16_t)((g->buf[4] << 8) | g->buf[5]);
+        gy521.ax = (int16_t)((s_buf[0] << 8) | s_buf[1]);
+        gy521.ay = (int16_t)((s_buf[2] << 8) | s_buf[3]);
+        gy521.az = (int16_t)((s_buf[4] << 8) | s_buf[5]);
         /* buf[6]、buf[7] 是温度，暂时用不到 */
-        g->gx = (int16_t)((g->buf[8] << 8) | g->buf[9]);
-        g->gy = (int16_t)((g->buf[10] << 8) | g->buf[11]);
-        g->gz = (int16_t)((g->buf[12] << 8) | g->buf[13]);
+        gy521.gx = (int16_t)((s_buf[8] << 8) | s_buf[9]);
+        gy521.gy = (int16_t)((s_buf[10] << 8) | s_buf[11]);
+        gy521.gz = (int16_t)((s_buf[12] << 8) | s_buf[13]);
 
-        g->sample_ready = 1;
-        g->step = STEP_STATUS;
+        gy521.sample_ready = 1;
+        s_step = STEP_STATUS;
         return TASK_DONE;
 
     default:
-        g->step = STEP_STATUS;
+        s_step = STEP_STATUS;
         return TASK_DONE;
     }
 }
+
+/* 任务节点在回调之后定义：初始化器引用了 gy521_update。 */
+static I2CTask s_task = {
+    .update  = gy521_update,
+    .freq_hz = 100000UL,
+};
 
 /* INT 引脚的当前电平。MPU6050 的 INT 是推挽输出，PA1 配的是下拉输入，
  * 所以直接读 IDR 就是真实电平；模块没接时下拉保证读到 0，不会误触发。 */
@@ -149,23 +162,14 @@ void GY521_Scan(void)
     if (!gy521.data_ready && !GY521_IntLevel()) {
         return;
     }
-    if (gy521.base.active) {
+    if (s_task.active) {
         return;
     }
 
     gy521.data_ready = 0;
-    I2CDevice_Enqueue(&gy521.base);
+    I2CTask_Enqueue(&s_task);
 }
 
-/* 方法表：const 放 flash，所有 GY521 实例共享一张。 */
-static const I2CDeviceVTable GY521_VTable = {
-    .update = gy521_update,
-};
-
 GY521 gy521 = {
-    .base = {
-        .vptr    = &GY521_VTable,
-        .freq_hz = 100000UL,
-    },
     .data_ready = 0,
 };
