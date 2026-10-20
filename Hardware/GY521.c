@@ -11,7 +11,6 @@ static uint8_t GY521_WriteReg(uint8_t reg, uint8_t data)
     return SoftI2C_WriteReg(GY521_ADDRESS, reg, data);
 }
 
-/* 从 reg 开始连读 len 个寄存器（芯片内部地址自动递增） */
 static uint8_t GY521_ReadRegs(uint8_t reg, uint8_t *buf, uint8_t len)
 {
     return SoftI2C_ReadRegs(GY521_ADDRESS, reg, buf, len);
@@ -45,7 +44,6 @@ GY521_Status GY521_Init(void)
     delay_ms(100);
     SoftI2C_BusRecover();
 
-    /* 1. 软复位，把所有寄存器恢复成默认值 */
     if (GY521_WriteReg(PWR_MGMT_1, 0x80)) {
         return GY521_ERR_RESET;
     }
@@ -59,18 +57,14 @@ GY521_Status GY521_Init(void)
     }
     delay_ms(10);
 
-    /* 4. 采样率 = 陀螺输出率 1kHz / (1 + 9) = 100Hz，跟主循环刷新速度匹配 */
     if (GY521_WriteReg(SMPLRT, 0x09)) {
         return GY521_ERR_CONFIG;
     }
 
-    /* 5. 数字低通滤波：DLPF_CFG = 3，加速度 44Hz / 陀螺 42Hz，滤掉手抖和振动 */
     if (GY521_WriteReg(CONFIG, 0x03)) {
         return GY521_ERR_CONFIG;
     }
 
-    /* 6. 量程：陀螺 ±2000°/s（FS_SEL = 3），加速度 ±2g（AFS_SEL = 0）。
-     *    要和 GY521.h 里的换算系数保持一致。 */
     if (GY521_WriteReg(GYRO_CONFIG, 0x18)) {
         return GY521_ERR_CONFIG;
     }
@@ -85,44 +79,42 @@ GY521_Status GY521_Init(void)
     }
 
     GY521_IntPinInit();
-    gy521.task.ctx = &gy521;
 
     return GY521_OK;
 }
 
 enum { STEP_STATUS = 0, STEP_BURST, STEP_PARSE };
-static uint8_t gy521_task_update(I2CTask *self)
+static uint8_t gy521_update(I2CDevice *self)
 {
-    GY521 *g = (GY521 *)self->ctx;
+    GY521 *g = (GY521 *)self;
     if (SoftI2C_Busy()) {
         return TASK_CONTINUE;
     }
 
-    switch (self->step) {
+    switch (g->step) {
 
     case STEP_STATUS:
-        /* 第一笔：读 INT_STATUS，清掉中断锁存（锁存模式下不读它
-         * 就放不开，中断就再也不会来了） */
-        if (SoftI2C_SubmitReadRegs(self->dev, INT_STATUS, &g->int_status, 1) == 0U) {
-            self->step = STEP_BURST;
+        if (SoftI2C_SubmitReadRegs(GY521_ADDRESS, INT_STATUS, &g->int_status, 1) == 0U) {
+            g->step = STEP_BURST;
         }
         return TASK_CONTINUE;
 
     case STEP_BURST:
         if (SoftI2C_Result() != I2C_OK) {
-            self->err_count++;
+            g->err_count++;
+            g->step = STEP_STATUS;
             return TASK_DONE;
         }
-        /* 14 个字节一次读完：比一个轴读一次快得多，而且保证 6 个值
-         * 来自同一时刻 */
-        if (SoftI2C_SubmitReadRegs(self->dev, ACCEL_X_H, g->buf, GY521_BURST_LEN) == 0U) {
-            self->step = STEP_PARSE;
+
+        if (SoftI2C_SubmitReadRegs(GY521_ADDRESS, ACCEL_X_H, g->buf, GY521_BURST_LEN) == 0U) {
+            g->step = STEP_PARSE;
         }
         return TASK_CONTINUE;
 
     case STEP_PARSE:
         if (SoftI2C_Result() != I2C_OK) {
-            self->err_count++; /* 读失败保留上一次的值，别把 0 当真实读数打出去 */
+            g->err_count++; 
+            g->step = STEP_STATUS;
             return TASK_DONE;
         }
 
@@ -135,9 +127,11 @@ static uint8_t gy521_task_update(I2CTask *self)
         g->gz = (int16_t)((g->buf[12] << 8) | g->buf[13]);
 
         g->sample_ready = 1;
+        g->step = STEP_STATUS;
         return TASK_DONE;
 
     default:
+        g->step = STEP_STATUS;
         return TASK_DONE;
     }
 }
@@ -152,25 +146,26 @@ static uint8_t GY521_IntLevel(void)
 /* 扫描标志 -> 入队。主循环每轮都调（见 GY521.h）。 */
 void GY521_Scan(void)
 {
-    /* 标志 = EXTI 置的 data_ready，或引脚电平兜底 */
     if (!gy521.data_ready && !GY521_IntLevel()) {
         return;
     }
-    if (gy521.task.active) {
-        return; /* 任务还在队列/执行中，等它结束下一轮再入队 */
+    if (gy521.base.active) {
+        return;
     }
 
-    /* 消费标志。若引脚还挂着高电平（上一笔读失败、锁存没解开），
-     * 电平兜底会在下一轮重新入队重试。 */
     gy521.data_ready = 0;
-    I2CTask_Enqueue(&gy521.task);
+    I2CDevice_Enqueue(&gy521.base);
 }
 
+/* 方法表：const 放 flash，所有 GY521 实例共享一张。 */
+static const I2CDeviceVTable GY521_VTable = {
+    .update = gy521_update,
+};
+
 GY521 gy521 = {
-    .data_ready = 0,
-    .task = {
-        .dev     = GY521_ADDRESS,
+    .base = {
+        .vptr    = &GY521_VTable,
         .freq_hz = 100000UL,
-        .update  = gy521_task_update,
     },
+    .data_ready = 0,
 };

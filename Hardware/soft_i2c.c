@@ -209,7 +209,7 @@ void SoftI2C_TickISR(void)
             phase = PHASE_HIGH;
         } else {
             if (!SCL_READ()) {
-                break; /* 从机在拉伸时钟，下一拍再看 */
+                break;
             }
             if (bit == 8U && SDA_READ()) {
                 engine_finish(I2C_ERR_ACK); /* 第 9 位还是高 = 从机没应答 */

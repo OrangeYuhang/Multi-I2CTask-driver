@@ -23,7 +23,7 @@
   */
 
 #include "GY521.h"
-#include "i2c_task.h"
+#include "i2c_device.h"
 #include "oled.h"
 #include "systick.h"
 #include "key.h"
@@ -58,12 +58,8 @@ int main(void)
     while (1) {
         key.update();
 
-        /* 固定顺序扫描 = 隐式优先级：先扫到的设备先入队。
-         * 以后加第二个从机，就在这行后面加它的 Scan。 */
         GY521_Scan();
-
-        /* 任务队列 runtime：队空则什么都不做；有任务则推进队头一步。 */
-        I2CTask_Run();
+        I2CDevice_Run();
 
         /* 用事件标志而不是看 key.state：一次刷屏要走近 500 字节 I2C，
          * 期间不会调用 key.update()，靠采样 state 判边沿有可能整段错过
@@ -81,12 +77,8 @@ int main(void)
         }
         last_draw = millis();
 
-        /* err_count 必须独立于 sample_ready 刷新：采样一旦停摆，正是最需要
-         * 看它的时候，不能跟着数值一起被跳过。 */
-        oled.show_num(1, 9, gy521.task.err_count, 2);
+        oled.show_num(1, 9, gy521.err_count, 2);
 
-        /* 看 sample_ready 而不是 data_ready：后者只说明芯片出了新数据，
-         * 数据真正落到 gy521 里还要经过两笔 I2C 事务。 */
         if (!gy521.sample_ready) {
             continue;
         }
