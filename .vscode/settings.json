@@ -1,0 +1,12 @@
+{
+  // CMake Tools: always drive configuration through CMakePresets.json
+  "cmake.useCMakePresets": "always",
+  "cmake.configureOnOpen": true,
+
+  // Don't let the C/C++ IntelliSense engine fight with clangd
+  "C_Cpp.intelliSenseEngine": "disabled",
+
+  "files.exclude": {
+    "build": true
+  }
+}

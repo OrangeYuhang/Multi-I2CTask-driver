@@ -1,0 +1,37 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug (OpenOCD + ST-Link)",
+      "cwd": "${workspaceFolder}",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "openocd",
+      "device": "STM32F103C8",
+      "interface": "swd",
+      "configFiles": [
+        "${workspaceFolder}/openocd/stlink.cfg",
+        "${workspaceFolder}/openocd/stm32f103.cfg"
+      ],
+      "executable": "${workspaceFolder}/build/debug/stm32f103.elf",
+      "runToEntryPoint": "main",
+      "showDevDebugOutput": "raw",
+      "preLaunchTask": "CMake: build",
+      "postLaunchCommands": []
+    },
+    {
+      "name": "Attach (OpenOCD + ST-Link)",
+      "cwd": "${workspaceFolder}",
+      "type": "cortex-debug",
+      "request": "attach",
+      "servertype": "openocd",
+      "device": "STM32F103C8",
+      "interface": "swd",
+      "configFiles": [
+        "${workspaceFolder}/openocd/stlink.cfg",
+        "${workspaceFolder}/openocd/stm32f103.cfg"
+      ],
+      "executable": "${workspaceFolder}/build/debug/stm32f103.elf"
+    }
+  ]
+}

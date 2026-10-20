@@ -1,0 +1,12 @@
+# Allow non-root access to common embedded debuggers via OpenOCD.
+# Install with:  sudo cp openocd/99-openocd.rules /etc/udev/rules.d/ && sudo udevadm control --reload
+# Then replug the debugger.
+
+# ST-Link V2 / V2.1 / V3
+SUBSYSTEM=="usb", ATTR{idVendor}=="0483", ATTR{idProduct}=="3748", MODE="0666"
+SUBSYSTEM=="usb", ATTR{idVendor}=="0483", ATTR{idProduct}=="374b", MODE="0666"
+SUBSYSTEM=="usb", ATTR{idVendor}=="0483", ATTR{idProduct}=="3752", MODE="0666"
+SUBSYSTEM=="usb", ATTR{idVendor}=="0483", ATTR{idProduct}=="3754", MODE="0666"
+
+# CMSIS-DAP / DAP-Link
+SUBSYSTEM=="usb", ATTR{idVendor}=="0d28", ATTR{idProduct}=="0204", MODE="0666"

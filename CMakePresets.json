@@ -1,0 +1,36 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "debug",
+      "displayName": "Debug (arm-none-eabi-gcc)",
+      "description": "Debug build, -O0 -g3, full GDB debugging via OpenOCD",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/debug",
+      "toolchainFile": "${sourceDir}/cmake/arm-none-eabi.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DEVICE": "STM32F103C8T6",
+        "OPENOCD_ADAPTER": "stlink"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release (arm-none-eabi-gcc)",
+      "description": "Release build, -Os size-optimized",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/release",
+      "toolchainFile": "${sourceDir}/cmake/arm-none-eabi.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DEVICE": "STM32F103C8T6",
+        "OPENOCD_ADAPTER": "stlink"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "debug", "configurePreset": "debug" },
+    { "name": "release", "configurePreset": "release" }
+  ]
+}

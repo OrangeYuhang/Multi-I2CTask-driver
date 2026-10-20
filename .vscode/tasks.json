@@ -1,0 +1,26 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "CMake: build",
+      "type": "shell",
+      "command": "cmake --build --preset debug",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "CMake: flash",
+      "type": "shell",
+      "command": "cmake --build --preset debug --target flash",
+      "group": "none",
+      "problemMatcher": []
+    },
+    {
+      "label": "CMake: clean",
+      "type": "shell",
+      "command": "cmake --build --preset debug --target clean",
+      "group": "none",
+      "problemMatcher": []
+    }
+  ]
+}
