@@ -143,7 +143,6 @@ static uint8_t GY521_IntLevel(void)
     return (GY521_INT_PORT->IDR & GY521_INT_PIN) != 0U;
 }
 
-/* 扫描标志 -> 入队。主循环每轮都调（见 GY521.h）。 */
 void GY521_Scan(void)
 {
     if (!gy521.data_ready && !GY521_IntLevel()) {
@@ -157,7 +156,6 @@ void GY521_Scan(void)
     I2CDevice_Enqueue(&gy521.base);
 }
 
-/* 方法表：const 放 flash，所有 GY521 实例共享一张。 */
 static const I2CDeviceVTable GY521_VTable = {
     .update = gy521_update,
 };

@@ -36,22 +36,17 @@
 
 typedef struct I2CDevice I2CDevice;
 
-/* 方法表：每类设备一张，const 放在 flash 里共享。加方法只长表，
- * 不长实例（vtable 相对 per-instance 函数指针的全部意义就在这里）。 */
 typedef struct I2CDeviceVTable {
     uint8_t (*update)(I2CDevice *this);
 } I2CDeviceVTable;
 
-/* 队列节点 = 设备接口。设备结构体把它内嵌为首成员。 */
 struct I2CDevice {
-    const I2CDeviceVTable *vptr; /* 首成员：通向 update 的指针 */
-    uint32_t freq_hz;            /* 本设备事务要求的 SCL 频率 */
-    uint8_t  active;             /* 已在队列/执行中。扫描去重用 */
-    I2CDevice *next;             /* 队列链接 */
+    const I2CDeviceVTable *vptr; 
+    uint32_t freq_hz;            
+    uint8_t  active;             
+    I2CDevice *next;         
 };
 
-/* 入队（内部去重：active 的设备会被忽略）。扫描到标志时调用。
- * 设备对象是静态分配的，队列只存指针。 */
 void I2CDevice_Enqueue(I2CDevice *d);
 
 /* runtime：主循环每轮调一次。队空则什么都不做。 */
