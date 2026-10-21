@@ -119,18 +119,24 @@ def frames(fd):
 
 def show(text):
     line = text.decode("ascii", errors="replace")
-    print(line, flush=True)
-
     m = LINE_RE.match(line)
     if not m:
+        print(f"[无法解析] {line}", flush=True)
         return
     ax, ay, az, gx, gy, gz = (int(v) for v in m.groups())
-    print(f"    加速度: x={ax / ACCEL_LSB_PER_G:+7.3f}g "
-          f"y={ay / ACCEL_LSB_PER_G:+7.3f}g "
-          f"z={az / ACCEL_LSB_PER_G:+7.3f}g", flush=True)
-    print(f"    角速度: x={gx / GYRO_LSB_PER_DPS:+8.2f}°/s "
-          f"y={gy / GYRO_LSB_PER_DPS:+8.2f}°/s "
-          f"z={gz / GYRO_LSB_PER_DPS:+8.2f}°/s", flush=True)
+    one = (f"ax={ax / ACCEL_LSB_PER_G:+6.3f}g "
+           f"ay={ay / ACCEL_LSB_PER_G:+6.3f}g "
+           f"az={az / ACCEL_LSB_PER_G:+6.3f}g | "
+           f"gx={gx / GYRO_LSB_PER_DPS:+6.1f}°/s "
+           f"gy={gy / GYRO_LSB_PER_DPS:+6.1f}°/s "
+           f"gz={gz / GYRO_LSB_PER_DPS:+6.1f}°/s")
+
+    if os.isatty(1):
+        # 原地刷新：回行首 + 清到行尾，屏幕只留一行跳动
+        sys.stdout.write("\r\x1b[K" + one)
+        sys.stdout.flush()
+    else:
+        print(one, flush=True)
 
 
 def main():
@@ -144,6 +150,8 @@ def main():
         pass
     finally:
         os.close(fd)
+    if os.isatty(1):
+        print()  # 退出时换行，别让 shell 提示符粘在数据行后面
 
 
 if __name__ == "__main__":
