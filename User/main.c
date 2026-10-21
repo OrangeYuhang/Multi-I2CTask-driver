@@ -30,10 +30,6 @@
 #include "usart1.h"
 #include <stdio.h>
 #include <string.h>
-
-/* 屏幕刷新间隔。数据是 100Hz 就绪的，但画一屏要走近 500 字节 I2C，
- * 比一次采样本身还慢，所以显示比采样慢一个数量级。
- * （读数据现在不阻塞主循环了，这个间隔主要是别让刷屏独占 CPU。） */
 #define DRAW_INTERVAL_MS 100
 
 int main(void)
@@ -42,22 +38,19 @@ int main(void)
     OLED_Init();
     key.init();
 
-    USART1_Init(); /* 优先级 1，低于软 I2C 引擎的 0，不干扰位定时 */
+    USART1_Init(); 
 
     if (GY521_Init() != GY521_OK) {
-        /* 走到这里基本都是接线问题：量一下 PA6/PA7 静态时是不是被上拉到 3.3V
-         * （没有上拉说明模块没供电或线断了），再确认模块的 AD0 是接地的。 */
         oled.show_string(1, 1, "GY521 FAIL");
         while (1) {
         }
     }
 
     oled.show_string(1, 1, "GY521");
-    oled.show_string(1, 7, "e:"); /* I2C 累计失败次数，排查卡死时看它 */
+    oled.show_string(1, 7, "e:"); 
     oled.show_string(1, 12, "ACCEL");
 
     uint8_t page = 0;
-    /* 减掉一个周期，让第一组数据到的时候马上就能画出来 */
     uint32_t last_draw = millis() - DRAW_INTERVAL_MS;
 
     while (1) {
@@ -66,16 +59,11 @@ int main(void)
 
         I2CTask_Poll();
         I2CTask_Run();
-
-        /* 用事件标志而不是看 key.state：一次刷屏要走近 500 字节 I2C，
-         * 期间不会调用 key.update()，靠采样 state 判边沿有可能整段错过
-         * 一次快按。标志位则不管主循环多久转一圈都不会漏。 */
         if (key.pressed_event) {
             key.pressed_event = 0;
             page = !page;
-            /* 两串都是 5 个字符（"GYRO " 带一个空格），长度一样才不会留残影 */
             oled.show_string(1, 12, page ? "GYRO " : "ACCEL");
-            last_draw = millis() - DRAW_INTERVAL_MS; /* 换了页立刻重画 */
+            last_draw = millis() - DRAW_INTERVAL_MS;
         }
 
         if (millis() - last_draw < DRAW_INTERVAL_MS) {
@@ -91,8 +79,6 @@ int main(void)
         gy521.sample_ready = 0;
 
         {
-            /* 串口同步发送当前采样：帧内文本行，10Hz（和刷屏同一拍）。
-             * 59 字节 < USART1_FRAME_DATA_MAX(64)，串口助手 8N1 可读。 */
             char line[64];
             sprintf(line, "ax=%6d ay=%6d az=%6d gx=%6d gy=%6d gz=%6d",
                     gy521.ax, gy521.ay, gy521.az,

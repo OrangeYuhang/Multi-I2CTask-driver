@@ -57,8 +57,8 @@ static volatile uint8_t  sub;      /* START/STOP 的三拍子计数 */
 static volatile uint16_t ticks;
 static volatile uint8_t  result;
 
-static uint8_t * volatile rx_buf;  /* 收数据的落点，走一个字节前进一格 */
-static volatile uint8_t  rx_left;  /* 本次 OP_RX 还要收几个字节 */
+static uint8_t * volatile rx_buf;  
+static volatile uint8_t  rx_left;  
 
 
 static void engine_finish(uint8_t res)
@@ -261,9 +261,6 @@ void SoftI2C_TickISR(void)
     }
 }
 
-/* ---------------------------------------------------------------------------
- * 脚本构造
- * --------------------------------------------------------------------------- */
 
 static void build_write_script(uint8_t dev, uint8_t reg, uint8_t val)
 {
@@ -288,10 +285,6 @@ static void build_read_script(uint8_t dev, uint8_t reg, uint8_t *buf, uint8_t le
 
     rx_buf = buf; 
 }
-
-/* ---------------------------------------------------------------------------
- * 对外接口
- * --------------------------------------------------------------------------- */
 
 void SoftI2C_Init(void)
 {

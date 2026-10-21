@@ -35,26 +35,16 @@
 
 typedef struct I2CTask I2CTask;
 struct I2CTask {
-    uint8_t  (*update)(void); /* 步进回调：驱动 static 函数，无参数 */
-    uint8_t  (*poll)(void);   /* 纯谓词：现在有没有工作要入队。不消费标志、
-                               * 不入队，只回答 0/1 —— 消费标志是 update 的
-                               * 职责，入队是 runtime 的职责。 */
-    uint32_t freq_hz;         /* 本任务事务要求的 SCL 频率 */
-    uint8_t  active;          /* 已在队列/执行中。扫描去重用 */
-    I2CTask *next;            /* 队列链接 */
+    uint8_t  (*update)(void); 
+    uint8_t  (*poll)(void);   
+    uint32_t freq_hz;         
+    uint8_t  active;          
+    I2CTask *next;           
 };
 
-/* 入队（内部去重：active 的任务会被忽略）。任务对象是驱动文件里的
- * static 实例，队列只存指针。 */
 void I2CTask_Enqueue(I2CTask *t);
-
-/* 注册进调度器（驱动的 Init 里调用）。注册表容量见 i2c_task.c。 */
 void I2CTask_Register(I2CTask *t);
-
-/* 逐个问注册表里的任务，poll 返回就绪的就入队（内部去重）。 */
 void I2CTask_Poll(void);
-
-/* runtime：主循环每轮调一次。队空则什么都不做。 */
 void I2CTask_Run(void);
 
 #endif

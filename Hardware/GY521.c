@@ -7,8 +7,6 @@
 #include "soft_i2c.h"
 #include "systick.h"
 
-/* 前置声明：GY521_Init（文件前部）和 s_task 的初始化器（文件后部）
- * 都要引用这两个，而它们的定义在文件后部。 */
 static I2CTask s_task;
 static uint8_t gy521_poll(void);
 
@@ -93,8 +91,6 @@ GY521_Status GY521_Init(void)
 
 enum { STEP_STATUS = 0, STEP_BURST, STEP_PARSE };
 
-/* 本设计的全部任务状态都在这里，file-scope static：step 复位是回调
- * 自己的责任（runtime 够不到），也意味着同类设备只能有一个实例。 */
 static uint8_t s_step;
 static uint8_t s_int_status;
 static uint8_t s_buf[GY521_BURST_LEN];
@@ -108,8 +104,6 @@ static uint8_t gy521_update(void)
     switch (s_step) {
 
     case STEP_STATUS:
-        /* 消费 data_ready。poll 只读不消费，标志在这里清零：任务真正开始
-         * 才算数。INT_STATUS 读失败时引脚仍高，poll 的电平兜底会重新入队。 */
         gy521.data_ready = 0;
         if (SoftI2C_SubmitReadRegs(GY521_ADDRESS, INT_STATUS, &s_int_status, 1) == 0U) {
             s_step = STEP_BURST;
@@ -153,23 +147,17 @@ static uint8_t gy521_update(void)
     }
 }
 
-/* 任务节点在回调之后定义：初始化器引用了 gy521_update。 */
 static I2CTask s_task = {
     .update  = gy521_update,
     .poll    = gy521_poll,
     .freq_hz = 100000UL,
 };
 
-/* INT 引脚的当前电平。MPU6050 的 INT 是推挽输出，PA1 配的是下拉输入，
- * 所以直接读 IDR 就是真实电平；模块没接时下拉保证读到 0，不会误触发。 */
 static uint8_t GY521_IntLevel(void)
 {
     return (GY521_INT_PORT->IDR & GY521_INT_PIN) != 0U;
 }
 
-/* poll 契约：纯谓词，只回答"有没有工作要入队"。不消费标志（消费是
- * update 的事）、不入队（入队是 runtime 的事）。active 去重不用管，
- * Enqueue 自己会拦。 */
 static uint8_t gy521_poll(void)
 {
     return gy521.data_ready || GY521_IntLevel();
