@@ -7,8 +7,9 @@
  * 模型：
  *   - 任务 = 一次事件的工作（有限步），由驱动文件里的 file-scope
  *     static 状态支撑。队列节点 I2CTask 只装「怎么推进」和队列簿记。
- *   - 主循环按固定顺序扫描各设备的标志位，扫到就 I2CTask_Enqueue()。
- *     扫描顺序就是隐式优先级：先扫到的设备先入队。
+ *   - "什么时候入队"由驱动自己的 poll 回调决定。主循环调
+ *     I2CTask_Poll() 逐个问注册过的任务，谁就绪就入谁。
+ *     注册顺序就是隐式优先级：先注册的任务先被问。
  *   - 主循环每轮调 I2CTask_Run()：取队头任务，必要时切 TIM 频率，
  *     调 t->update()。返回 TASK_DONE 就出队。
  *
@@ -35,14 +36,23 @@
 typedef struct I2CTask I2CTask;
 struct I2CTask {
     uint8_t  (*update)(void); /* 步进回调：驱动 static 函数，无参数 */
+    uint8_t  (*poll)(void);   /* 纯谓词：现在有没有工作要入队。不消费标志、
+                               * 不入队，只回答 0/1 —— 消费标志是 update 的
+                               * 职责，入队是 runtime 的职责。 */
     uint32_t freq_hz;         /* 本任务事务要求的 SCL 频率 */
     uint8_t  active;          /* 已在队列/执行中。扫描去重用 */
     I2CTask *next;            /* 队列链接 */
 };
 
-/* 入队（内部去重：active 的任务会被忽略）。扫描到标志时调用。
- * 任务对象是驱动文件里的 static 实例，队列只存指针。 */
+/* 入队（内部去重：active 的任务会被忽略）。任务对象是驱动文件里的
+ * static 实例，队列只存指针。 */
 void I2CTask_Enqueue(I2CTask *t);
+
+/* 注册进调度器（驱动的 Init 里调用）。注册表容量见 i2c_task.c。 */
+void I2CTask_Register(I2CTask *t);
+
+/* 逐个问注册表里的任务，poll 返回就绪的就入队（内部去重）。 */
+void I2CTask_Poll(void);
 
 /* runtime：主循环每轮调一次。队空则什么都不做。 */
 void I2CTask_Run(void);

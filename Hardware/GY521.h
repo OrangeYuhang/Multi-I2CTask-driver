@@ -75,7 +75,8 @@ typedef struct  {
   int16_t gy;
   int16_t gz;
 
-  /* MPU6050 说"有新数据了"。由 EXTI1 中断置 1，GY521_Scan() 消费。
+  /* MPU6050 说"有新数据了"。由 EXTI1 中断置 1，update 在任务开始时消费；
+   * poll 只读它。
    * 必须是 volatile：中断里改、主循环里读，不然编译器可能把它
    * 优化进寄存器里，主循环永远看不到变化。 */
   volatile uint8_t data_ready;
@@ -98,16 +99,8 @@ typedef struct  {
  * 失败时返回具体是哪一步错了。 */
 GY521_Status GY521_Init(void);
 
-/* 扫描标志 -> 入队。主循环每轮都调：固定顺序扫描就是隐式优先级，
- * 以后加第二个从机就在 GY521_Scan 后面加它的 Scan。
- *
- * 标志有两个来源：EXTI 置的 data_ready，和 INT 引脚电平兜底。
- * 电平兜底是防漏机制 —— 锁存模式下引脚挂在高电平时不会再产生新的
- * 上升沿，只靠 data_ready 会在读 INT_STATUS 失败后永久停摆。
- *
- * 任务节点、步进状态、事务缓冲都是 GY521.c 里的 file-scope static
+/* 任务节点、步进状态、事务缓冲都是 GY521.c 里的 file-scope static
  * （本文件只留数据），所以同一类设备只能有一个实例。 */
-void GY521_Scan(void);
 
 extern GY521 gy521;
 

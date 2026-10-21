@@ -7,6 +7,11 @@
 #include "soft_i2c.h"
 #include "systick.h"
 
+/* 前置声明：GY521_Init（文件前部）和 s_task 的初始化器（文件后部）
+ * 都要引用这两个，而它们的定义在文件后部。 */
+static I2CTask s_task;
+static uint8_t gy521_poll(void);
+
 static uint8_t GY521_WriteReg(uint8_t reg, uint8_t data)
 {
     return SoftI2C_WriteReg(GY521_ADDRESS, reg, data);
@@ -81,6 +86,8 @@ GY521_Status GY521_Init(void)
 
     GY521_IntPinInit();
 
+    I2CTask_Register(&s_task);
+
     return GY521_OK;
 }
 
@@ -101,6 +108,9 @@ static uint8_t gy521_update(void)
     switch (s_step) {
 
     case STEP_STATUS:
+        /* 消费 data_ready。poll 只读不消费，标志在这里清零：任务真正开始
+         * 才算数。INT_STATUS 读失败时引脚仍高，poll 的电平兜底会重新入队。 */
+        gy521.data_ready = 0;
         if (SoftI2C_SubmitReadRegs(GY521_ADDRESS, INT_STATUS, &s_int_status, 1) == 0U) {
             s_step = STEP_BURST;
         }
@@ -146,6 +156,7 @@ static uint8_t gy521_update(void)
 /* 任务节点在回调之后定义：初始化器引用了 gy521_update。 */
 static I2CTask s_task = {
     .update  = gy521_update,
+    .poll    = gy521_poll,
     .freq_hz = 100000UL,
 };
 
@@ -156,18 +167,12 @@ static uint8_t GY521_IntLevel(void)
     return (GY521_INT_PORT->IDR & GY521_INT_PIN) != 0U;
 }
 
-/* 扫描标志 -> 入队。主循环每轮都调（见 GY521.h）。 */
-void GY521_Scan(void)
+/* poll 契约：纯谓词，只回答"有没有工作要入队"。不消费标志（消费是
+ * update 的事）、不入队（入队是 runtime 的事）。active 去重不用管，
+ * Enqueue 自己会拦。 */
+static uint8_t gy521_poll(void)
 {
-    if (!gy521.data_ready && !GY521_IntLevel()) {
-        return;
-    }
-    if (s_task.active) {
-        return;
-    }
-
-    gy521.data_ready = 0;
-    I2CTask_Enqueue(&s_task);
+    return gy521.data_ready || GY521_IntLevel();
 }
 
 GY521 gy521 = {
