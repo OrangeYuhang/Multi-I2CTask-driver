@@ -7,9 +7,9 @@
 #define SDA GPIO_Pin_7
 typedef enum {
     I2C_OK = 0,
-    I2C_ERR_ACK,     /* 从机没应答：没接、地址不对、上拉缺失 */
-    I2C_ERR_TIMEOUT, /* 位定时超时：时钟被拉住不放，或总线卡死 */
-    I2C_ERR_BUSY,    /* 上一笔还没做完就又提交了 */
+    I2C_ERR_ACK,     
+    I2C_ERR_TIMEOUT, 
+    I2C_ERR_BUSY,    
 } I2C_Status;
 
 void SoftI2C_Init(void);

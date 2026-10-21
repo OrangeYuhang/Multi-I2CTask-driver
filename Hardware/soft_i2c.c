@@ -20,8 +20,6 @@
 #define I2C_TICK_HZ       200000UL
 #define I2C_TIM_ARR       (I2C_TIM_CLK_HZ / I2C_TICK_HZ - 1UL) /* 359 */
 
-/* 一笔事务的 tick 上限。14 字节连读约 189 个位 → 378 tick ≈ 1.9ms，
- * 给 10ms 的余量，主要是容忍从机把 SCL 拉住不放（时钟拉伸）。 */
 #define I2C_TIMEOUT_TICKS 2000U
 
 #define I2C_PORT GPIOA
@@ -33,12 +31,6 @@
 #define SDA_READ()    ((I2C_PORT->IDR & SDA) != 0U)
 #define SCL_READ()    ((I2C_PORT->IDR & SCL) != 0U)
 
-/* ---------------------------------------------------------------------------
- * 事务脚本
- *
- * 一笔事务展开成一串 op，引擎按顺序走。用脚本而不是给每种事务写一套
- * 状态机，是因为"写寄存器"和"读寄存器"只是 op 序列不同，位级逻辑完全一样。
- * --------------------------------------------------------------------------- */
 enum { OP_START = 0, OP_TX, OP_RX, OP_STOP };
 
 typedef struct {
@@ -67,8 +59,8 @@ static volatile uint8_t  sub;      /* START/STOP 的三拍子计数 */
 static volatile uint16_t ticks;
 static volatile uint8_t  result;
 
-static uint8_t * volatile rx_buf;  /* 收数据的落点，走一个字节前进一格 */
-static volatile uint8_t  rx_left;  /* 本次 OP_RX 还要收几个字节 */
+static uint8_t * volatile rx_buf;  
+static volatile uint8_t  rx_left;  
 
 
 static void engine_finish(uint8_t res)
@@ -299,9 +291,6 @@ static void build_read_script(uint8_t dev, uint8_t reg, uint8_t *buf, uint8_t le
     rx_buf = buf; 
 }
 
-/* ---------------------------------------------------------------------------
- * 对外接口
- * --------------------------------------------------------------------------- */
 
 void SoftI2C_Init(void)
 {
