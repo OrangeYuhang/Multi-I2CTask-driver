@@ -8,6 +8,9 @@ typedef struct {
 } I2CQueue;
 
 static I2CQueue s_q;
+#define I2C_DEVICE_MAX 8
+static I2CDevice *s_registry[I2C_DEVICE_MAX];
+static uint8_t s_count = 0U;
 
 static uint32_t s_cur_freq = 0U;
 
@@ -26,6 +29,22 @@ void I2CDevice_Enqueue(I2CDevice *d)
         s_q.head = d;
     }
     s_q.tail = d;
+}
+
+void I2CDevice_Register(I2CDevice *d)
+{
+    if (d != NULL && s_count < I2C_DEVICE_MAX) {
+        s_registry[s_count++] = d;
+    }
+}
+
+void I2CDevice_Poll(void)
+{
+    for (uint8_t i = 0U; i < s_count; i++) {
+        if (s_registry[i]->vptr->poll(s_registry[i])) {
+            I2CDevice_Enqueue(s_registry[i]);
+        }
+    }
 }
 
 void I2CDevice_Run(void)

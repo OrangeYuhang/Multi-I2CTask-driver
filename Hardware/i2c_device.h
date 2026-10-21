@@ -8,8 +8,9 @@
  *   - 队列节点就是设备自己（内嵌的 I2CDevice base）。一次事件的工作
  *     （比如 GY521 的一次采样 = 读 INT_STATUS + 读 14 字节 + 解析）
  *     对应一次入队，update 返回 TASK_DONE 就出队。
- *   - 主循环按固定顺序扫描各设备的标志位，扫到就 I2CDevice_Enqueue()。
- *     扫描顺序就是隐式优先级：先扫到的设备先入队。
+ *   - "什么时候入队"由设备自己的 poll 方法决定（见 I2CDeviceVTable）。
+ *     主循环调 I2CDevice_Poll() 逐个问注册过的设备，谁就绪就入谁。
+ *     注册顺序就是隐式优先级：先注册的设备先被问。
  *   - 主循环每轮调 I2CDevice_Run()：取队头设备，必要时切 TIM 频率，
  *     然后经 vptr 调 update。返回 TASK_DONE 就出队。
  *
@@ -38,6 +39,7 @@ typedef struct I2CDevice I2CDevice;
 
 typedef struct I2CDeviceVTable {
     uint8_t (*update)(I2CDevice *this);
+    uint8_t (*poll)(I2CDevice *this);
 } I2CDeviceVTable;
 
 struct I2CDevice {
@@ -47,9 +49,8 @@ struct I2CDevice {
     I2CDevice *next;         
 };
 
-void I2CDevice_Enqueue(I2CDevice *d);
-
-/* runtime：主循环每轮调一次。队空则什么都不做。 */
+void I2CDevice_Register(I2CDevice *d);
+void I2CDevice_Poll(void);
 void I2CDevice_Run(void);
 
 #endif

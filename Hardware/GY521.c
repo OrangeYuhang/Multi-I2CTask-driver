@@ -80,6 +80,8 @@ GY521_Status GY521_Init(void)
 
     GY521_IntPinInit();
 
+    I2CDevice_Register(&gy521.base);
+
     return GY521_OK;
 }
 
@@ -94,6 +96,9 @@ static uint8_t gy521_update(I2CDevice *self)
     switch (g->step) {
 
     case STEP_STATUS:
+        /* 消费 data_ready。poll 只读不消费，标志在这里清零：任务真正开始
+         * 才算数。INT_STATUS 读失败时引脚仍高，poll 的电平兜底会重新入队。 */
+        gy521.data_ready = 0;
         if (SoftI2C_SubmitReadRegs(GY521_ADDRESS, INT_STATUS, &g->int_status, 1) == 0U) {
             g->step = STEP_BURST;
         }
@@ -136,28 +141,23 @@ static uint8_t gy521_update(I2CDevice *self)
     }
 }
 
-/* INT 引脚的当前电平。MPU6050 的 INT 是推挽输出，PA1 配的是下拉输入，
- * 所以直接读 IDR 就是真实电平；模块没接时下拉保证读到 0，不会误触发。 */
 static uint8_t GY521_IntLevel(void)
 {
     return (GY521_INT_PORT->IDR & GY521_INT_PIN) != 0U;
 }
 
-void GY521_Scan(void)
+/* poll 契约：纯谓词，只回答"有没有工作要入队"。不消费标志（消费是
+ * update 的事）、不入队（入队是 runtime 的事）。active 去重不用管，
+ * Enqueue 自己会拦。 */
+static uint8_t gy521_poll(I2CDevice *self)
 {
-    if (!gy521.data_ready && !GY521_IntLevel()) {
-        return;
-    }
-    if (gy521.base.active) {
-        return;
-    }
-
-    gy521.data_ready = 0;
-    I2CDevice_Enqueue(&gy521.base);
+    (void)self;
+    return gy521.data_ready || GY521_IntLevel();
 }
 
 static const I2CDeviceVTable GY521_VTable = {
     .update = gy521_update,
+    .poll   = gy521_poll,
 };
 
 GY521 gy521 = {

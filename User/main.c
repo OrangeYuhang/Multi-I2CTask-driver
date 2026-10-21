@@ -58,7 +58,7 @@ int main(void)
     while (1) {
         key.update();
 
-        GY521_Scan();
+        I2CDevice_Poll();
         I2CDevice_Run();
 
         /* 用事件标志而不是看 key.state：一次刷屏要走近 500 字节 I2C，
