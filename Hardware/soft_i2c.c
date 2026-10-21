@@ -20,8 +20,6 @@
 #define I2C_TICK_HZ       200000UL
 #define I2C_TIM_ARR       (I2C_TIM_CLK_HZ / I2C_TICK_HZ - 1UL) /* 359 */
 
-/* 一笔事务的 tick 上限。14 字节连读约 189 个位 → 378 tick ≈ 1.9ms，
- * 给 10ms 的余量，主要是容忍从机把 SCL 拉住不放（时钟拉伸）。 */
 #define I2C_TIMEOUT_TICKS 2000U
 
 #define I2C_PORT GPIOA
