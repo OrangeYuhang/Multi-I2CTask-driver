@@ -64,7 +64,7 @@ int main(void)
         key.update();
         USART1_Update();
 
-        GY521_Scan();
+        I2CTask_Poll();
         I2CTask_Run();
 
         /* 用事件标志而不是看 key.state：一次刷屏要走近 500 字节 I2C，
